@@ -1,0 +1,18 @@
+[tool.poetry]
+name = "quads"
+version = "1.0.0"
+description = "A pure Python Quadtree implementation."
+authors = ["Daniel Lindsley <daniel@toastdriven.com>"]
+license = "BSD-3-Clause"
+readme = "README.md"
+repository = "https://github.com/toastdriven/quads"
+
+[tool.poetry.dependencies]
+python = "^3.7"
+
+[tool.poetry.dev-dependencies]
+pytest = "^5.4.3"
+
+[build-system]
+requires = ["poetry>=0.12"]
+build-backend = "poetry.masonry.api"
