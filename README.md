@@ -14,7 +14,7 @@ They're especially for spatial indexing & image processing.
 >>> tree = quads.QuadTree(
 ...     (0, 0),  # The center point
 ...     10,  # The width
-...     10,  # The hieght
+...     10,  # The height
 ... )
 
 # You can choose to simply represent points that exist.
@@ -58,7 +58,13 @@ $ git clone https://github.com/toastdriven/quads.git
 $ cd quads
 $ poetry install
 
+# Just the tests.
 $ pytest .
+
+# With coverage.
+$ pytest -s --cov=quads .
+# And with pretty reports.
+$ pytest -s --cov=quads . && coverage html
 ```
 
 

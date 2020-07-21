@@ -1,6 +1,80 @@
 import unittest
 
-from quads import Point, BoundingBox, QuadNode, QuadTree
+from quads import (
+    euclidean_compare,
+    euclidean_distance,
+    Point,
+    BoundingBox,
+    QuadNode,
+    QuadTree,
+)
+
+
+class UtilsTestCase(unittest.TestCase):
+    def test_euclidean_compare(self):
+        comp = euclidean_compare(Point(0, 0), Point(4, 5))
+        self.assertEqual(comp, 41)
+
+        comp = euclidean_compare(Point(-13, 7), Point(-3, -5))
+        self.assertEqual(comp, 244)
+
+    def test_euclidean_distance(self):
+        dist = euclidean_distance(Point(0, 0), Point(4, 5))
+        self.assertAlmostEqual(dist, 6.4031242374328485)
+
+        dist = euclidean_distance(Point(-13, 7), Point(-3, -5))
+        self.assertEqual(dist, 15.620499351813308)
+
+
+class PointTestCase(unittest.TestCase):
+    def test_init(self):
+        # Mostly for API stability.
+        pnt = Point(1, -23)
+        self.assertEqual(pnt.x, 1)
+        self.assertEqual(pnt.y, -23)
+        self.assertEqual(pnt.data, None)
+
+        pnt = Point(72, 13, data="Samus")
+        self.assertEqual(pnt.x, 72)
+        self.assertEqual(pnt.y, 13)
+        self.assertEqual(pnt.data, "Samus")
+
+    def test_str(self):
+        pnt = Point(72, 13, data="Samus")
+        self.assertEqual(str(pnt), "<Point: (72, 13)>")
+
+    def test_equality(self):
+        pnt_1 = Point(1, -23)
+        pnt_2 = Point(1, -23, data="test")
+        pnt_3 = Point(72, 13)
+
+        self.assertTrue(pnt_1 == pnt_2)
+        self.assertFalse(pnt_1 == pnt_3)
+
+
+class BoundingBoxTestCase(unittest.TestCase):
+    def test_init(self):
+        # Mostly for API stability.
+        bb = BoundingBox(-10, -13, 10, 20)
+        self.assertEqual(bb.min_x, -10)
+        self.assertEqual(bb.min_y, -13)
+        self.assertEqual(bb.max_x, 10)
+        self.assertEqual(bb.max_y, 20)
+
+    def test_str(self):
+        bb = BoundingBox(-10, -13, 10, 20)
+        self.assertEqual(str(bb), "<BoundingBox: (-10, -13) to (10, 20)>")
+
+    def test_contains(self):
+        bb = BoundingBox(-10, -13, 10, 20)
+
+        pnt_1 = Point(1, -13)
+        pnt_2 = Point(72, 13, data="test")
+        pnt_3 = Point(-5, -5)
+
+        self.assertTrue(bb.contains(pnt_1))
+        self.assertFalse(bb.contains(pnt_2))
+        self.assertTrue(bb.contains(pnt_3))
 
 
 class QuadNodeTestCase(unittest.TestCase):
@@ -16,6 +90,19 @@ class QuadNodeTestCase(unittest.TestCase):
         self.assertIsNone(node.ur)
         self.assertIsNone(node.ll)
         self.assertIsNone(node.lr)
+
+    def test_str(self):
+        node = QuadNode(Point(0, 0), 10, 10)
+        self.assertEqual(str(node), "<QuadNode: (0, 0) 10x10>")
+
+    def test_dunder_contains(self):
+        node = QuadNode(Point(0, 0), 10, 10)
+        node.points = [
+            Point(1, 2),
+            Point(-3, -1),
+        ]
+        self.assertTrue(Point(1, 2) in node)
+        self.assertFalse(Point(2, 3) in node)
 
     def test_calc_bounding_box_basic(self):
         node = QuadNode(Point(0, 0), 10, 10)
@@ -152,6 +239,24 @@ class QuadNodeTestCase(unittest.TestCase):
         self.assertIsNotNone(node.lr)
         self.assertEqual(len(node.lr.points), 1)
 
+    def test_insert_fail(self):
+        node = QuadNode(Point(0, 0), 20, 20)
+
+        with self.assertRaises(ValueError):
+            node.insert(Point(17, 55))
+
+    def test_insert_ll(self):
+        # Without this, a lower-left insert fails to be seen on coverage,
+        # which is weird. Ensure that happens & things look right.
+        node = QuadNode(Point(0, 0), 20, 20)
+        node.ul = QuadNode(Point(-5, 5), 10, 10)
+        node.ur = QuadNode(Point(5, 5), 10, 10)
+        node.ll = QuadNode(Point(-5, -5), 10, 10)
+        node.lr = QuadNode(Point(5, -5), 10, 10)
+        node.insert(Point(-7, -5))
+        self.assertTrue(Point(-7, -5) in node)
+        self.assertTrue(Point(-7, -5) in node.ll)
+
     def create_simple_tree(self):
         node = QuadNode(Point(0, 0), 20, 20)
         node.insert(Point(7, 5, data="dog"))
@@ -160,6 +265,24 @@ class QuadNodeTestCase(unittest.TestCase):
         node.insert(Point(9, -9, data={"hello": "world"}))
         node.insert(Point(8, 8, data=("a", "b", "c")))
         node.insert(Point(-3, 2, data=False))
+        return node
+
+    def create_medium_tree(self):
+        node = QuadNode(Point(0, 0), 100, 100)
+
+        node.insert(Point(1, 2, data=True))
+        node.insert(Point(7, 5, data="dog"))
+        node.insert(Point(6, 4, data="cat"))
+        node.insert(Point(-1, -2, data=False))
+        node.insert(Point(10, -22, data=35))
+        node.insert(Point(10, -22.5, data=["a", "b"]))
+        node.insert(Point(9, -17, data=89.567))
+        node.insert(Point(10, 35, data="fish"))
+        node.insert(Point(11, 42, data="Samus"))
+        node.insert(Point(-15, 17, data={"hello": "world"}))
+        node.insert(Point(-15, 9, data="whatev"))
+        node.insert(Point(-13, 6, data=-69))
+
         return node
 
     def test_find(self):
@@ -197,6 +320,33 @@ class QuadNodeTestCase(unittest.TestCase):
         res = node.find(Point(250, 350))
         self.assertIsNone(res)
 
+    def test_find_node(self):
+        node = self.create_medium_tree()
+
+        found, searched = node.find_node(Point(1, 2))
+        self.assertIsNotNone(found)
+        self.assertEqual(found.center, Point(12.5, 12.5))
+        self.assertEqual(len(searched), 3)
+
+        found, searched = node.find_node(Point(-1, -2))
+        self.assertIsNotNone(found)
+        self.assertEqual(found.center, Point(-25, -25))
+        self.assertEqual(len(searched), 2)
+
+        found, searched = node.find_node(Point(11, 42))
+        self.assertIsNotNone(found)
+        self.assertEqual(found.center, Point(12.5, 37.5))
+        self.assertEqual(len(searched), 3)
+
+        found, searched = node.find_node(Point(-15, 17))
+        self.assertIsNotNone(found)
+        self.assertEqual(found.center, Point(-25, 25))
+        self.assertEqual(len(searched), 2)
+
+        # And a miss.
+        found, searched = node.find_node(Point(-500, 450))
+        self.assertIsNone(found)
+
     def test_within_bb(self):
         node = self.create_simple_tree()
         bb = BoundingBox(-7, -7, 7, 7)
@@ -220,6 +370,10 @@ class QuadTreeTestCase(unittest.TestCase):
         self.assertEqual(tree.width, 10)
         self.assertEqual(tree.height, 10)
         self.assertEqual(tree.center, Point(0, 0))
+
+    def test_str(self):
+        tree = QuadTree((0, 0), 10, 10)
+        self.assertEqual(str(tree), "<QuadTree: (0, 0) 10x10>")
 
     def test_convert_to_point_already_a_point(self):
         tree = QuadTree((0, 0), 10, 10)
@@ -245,6 +399,16 @@ class QuadTreeTestCase(unittest.TestCase):
 
         with self.assertRaises(ValueError):
             tree.convert_to_point("Samus")
+
+    def test_dunder_contains(self):
+        tree = QuadTree((0, 0), 20, 20)
+        tree.insert((1, 2))
+        tree.insert((7, 5))
+        tree.insert((6, 4))
+
+        self.assertTrue(Point(1, 2) in tree)
+        self.assertTrue(Point(6, 4) in tree)
+        self.assertFalse(Point(2, 3) in tree)
 
     def test_insert(self):
         tree = QuadTree((0, 0), 20, 20)

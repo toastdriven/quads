@@ -1,28 +1,22 @@
 """
 A pure Python Quadtree implementation.
-
-Usage::
-
-    >>> import quads
-    >>> tree = quads.QuadTree(
-    ...     (0, 0),  # The center point
-    ...     10,  # The width
-    ...     10,  # The hieght
-    ... )
-
-    >>> tree.insert((1, 2))
-    True
-
-    >>> tree.find((1, 2))
-    Point(1, 2)
-
-    >>> tree.find((4, -4))
-    None
-
 """
+import math
+
+
 __author__ = "Daniel Lindsley"
 __license__ = "New BSD"
 __version__ = (1, 0, 0, "beta")
+
+
+def euclidean_compare(ref_point, check_point):
+    dx = max(ref_point.x, check_point.x) - min(ref_point.x, check_point.x)
+    dy = max(ref_point.y, check_point.y) - min(ref_point.y, check_point.y)
+    return dx ** 2 + dy ** 2
+
+
+def euclidean_distance(ref_point, check_point):
+    return math.sqrt(euclidean_compare(ref_point, check_point))
 
 
 class Point(object):
@@ -31,11 +25,8 @@ class Point(object):
         self.y = y
         self.data = data
 
-    def __str__(self):
-        return "<Point: ({}, {})>".format(self.x, self.y)
-
     def __repr__(self):
-        return str(self)
+        return "<Point: ({}, {})>".format(self.x, self.y)
 
     def __eq__(self, other):
         return self.x == other.x and self.y == other.y
@@ -48,13 +39,10 @@ class BoundingBox(object):
         self.max_x = max_x
         self.max_y = max_y
 
-    def __str__(self):
+    def __repr__(self):
         return "<BoundingBox: ({}, {}) to ({}, {})>".format(
             self.min_x, self.min_y, self.max_x, self.max_y
         )
-
-    def __repr__(self):
-        return str(self)
 
     def contains(self, point):
         return (
@@ -83,13 +71,10 @@ class QuadNode(object):
         self.capacity = capacity
         self.bounding_box = self._calc_bounding_box()
 
-    def __str__(self):
+    def __repr__(self):
         return "<QuadNode: ({}, {}) {}x{}>".format(
             self.center.x, self.center.y, self.width, self.height
         )
-
-    def __repr__(self):
-        return str(self)
 
     def __contains__(self, pnt):
         return self.find(pnt) is not None
@@ -201,40 +186,49 @@ class QuadNode(object):
         return True
 
     def find(self, point):
-        if not self.contains_point(point):
+        found_node, _ = self.find_node(point)
+
+        if found_node is None:
             return None
 
         # Try the points on this node first.
-        for pnt in self.points:
+        for pnt in found_node.points:
             if pnt.x == point.x and pnt.y == point.y:
                 return pnt
 
-        # It's not on this node. Check the children.
-        if self.is_ul(point):
-            if self.ul is None:
-                return None
-
-            return self.ul.find(point)
-        elif self.is_ur(point):
-            if self.ur is None:
-                return None
-
-            return self.ur.find(point)
-        elif self.is_ll(point):
-            if self.ll is None:
-                return None
-
-            return self.ll.find(point)
-        elif self.is_lr(point):
-            if self.lr is None:
-                return None
-
-            return self.lr.find(point)
-
         return None
+
+    def find_node(self, point, searched=None):
+        if searched is None:
+            searched = []
+
+        if not self.contains_point(point):
+            return None, searched
+
+        searched.append(self)
+
+        # Check the children.
+        if self.is_ul(point):
+            if self.ul is not None:
+                return self.ul.find_node(point, searched)
+        elif self.is_ur(point):
+            if self.ur is not None:
+                return self.ur.find_node(point, searched)
+        elif self.is_ll(point):
+            if self.ll is not None:
+                return self.ll.find_node(point, searched)
+        elif self.is_lr(point):
+            if self.lr is not None:
+                return self.lr.find_node(point, searched)
+
+        # Not found in any children. Return this node.
+        return self, searched
 
     def within_bb(self, bb):
         points = []
+
+        # FIXME: This is inefficient, as it checks nodes that may not
+        #        overlap with the bounding box.
 
         if self.ul is not None:
             points += self.ul.within_bb(bb)
@@ -257,6 +251,26 @@ class QuadNode(object):
 
 
 class QuadTree(object):
+    """
+    Usage::
+
+        >>> import quads
+        >>> tree = quads.QuadTree(
+        ...     (0, 0),  # The center point
+        ...     10,  # The width
+        ...     10,  # The height
+        ... )
+
+        >>> tree.insert((1, 2))
+        True
+
+        >>> tree.find((1, 2))
+        Point(1, 2)
+
+        >>> tree.find((4, -4))
+        None
+    """
+
     def __init__(self, center, width, height, capacity=None):
         self.width = width
         self.height = height
@@ -265,13 +279,10 @@ class QuadTree(object):
             self.center, self.width, self.height, capacity=capacity
         )
 
-    def __str__(self):
+    def __repr__(self):
         return "<QuadTree: ({}, {}) {}x{}>".format(
             self.center.x, self.center.y, self.width, self.height,
         )
-
-    def __repr__(self):
-        return str(self)
 
     def convert_to_point(self, val):
         if isinstance(val, Point):
