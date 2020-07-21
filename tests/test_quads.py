@@ -61,6 +61,10 @@ class BoundingBoxTestCase(unittest.TestCase):
         self.assertEqual(bb.max_x, 10)
         self.assertEqual(bb.max_y, 20)
 
+        self.assertEqual(bb.width, 20)
+        self.assertEqual(bb.height, 33)
+        self.assertEqual(bb.center, Point(10, 16.5))
+
     def test_str(self):
         bb = BoundingBox(-10, -13, 10, 20)
         self.assertEqual(str(bb), "<BoundingBox: (-10, -13) to (10, 20)>")
@@ -75,6 +79,30 @@ class BoundingBoxTestCase(unittest.TestCase):
         self.assertTrue(bb.contains(pnt_1))
         self.assertFalse(bb.contains(pnt_2))
         self.assertTrue(bb.contains(pnt_3))
+
+    def test_intersects(self):
+        bb_1 = BoundingBox(-10, -13, 10, 20)
+        bb_2 = BoundingBox(0, 0, 30, 40)
+        bb_3 = BoundingBox(-20, -30, 0, 0)
+
+        # Partial overlap.
+        self.assertTrue(bb_1.intersects(bb_2))
+        self.assertTrue(bb_2.intersects(bb_1))
+
+        self.assertTrue(bb_1.intersects(bb_3))
+        self.assertTrue(bb_3.intersects(bb_1))
+
+        # Containing box.
+        bb_4 = BoundingBox(-10.0, -10.0, 10.0, 10.0)
+        bb_5 = BoundingBox(-7, -7, 7, 7)
+        self.assertTrue(bb_4.intersects(bb_5))
+        self.assertTrue(bb_5.intersects(bb_4))
+
+        # Non-intersecting.
+        bb_6 = BoundingBox(-7, -7, -6, -6)
+        bb_7 = BoundingBox(-5, -5, -4, -4)
+        self.assertFalse(bb_6.intersects(bb_7))
+        self.assertFalse(bb_7.intersects(bb_6))
 
 
 class QuadNodeTestCase(unittest.TestCase):
@@ -362,6 +390,14 @@ class QuadNodeTestCase(unittest.TestCase):
         points = node.within_bb(bb)
         pairs = [(pnt.x, pnt.y) for pnt in points]
         self.assertEqual(pairs, [(-3, 2), (-1, -2)])
+
+    def test_within_bb_none(self):
+        node = self.create_simple_tree()
+        bb = BoundingBox(-30, -30, -29, -29)
+
+        points = node.within_bb(bb)
+        pairs = [(pnt.x, pnt.y) for pnt in points]
+        self.assertEqual(pairs, [])
 
 
 class QuadTreeTestCase(unittest.TestCase):

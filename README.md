@@ -3,8 +3,8 @@
 A pure Python Quadtree implementation.
 
 [Quadtrees](https://en.wikipedia.org/wiki/Quadtree) are a useful data
-structure for sparse datasets where the position of the data is important.
-They're especially for spatial indexing & image processing.
+structure for sparse datasets where the location/position of the data is
+important. They're especially good for spatial indexing & image processing.
 
 
 ## Usage

@@ -1,26 +1,101 @@
 """
 A pure Python Quadtree implementation.
+
+Quadtrees are a useful data structure for sparse datasets where the
+location/position of the data is important. They're especially good for
+spatial indexing & image processing.
+
+Usage::
+
+    >>> import quads
+    >>> tree = quads.QuadTree(
+    ...     (0, 0),  # The center point
+    ...     10,  # The width
+    ...     10,  # The height
+    ... )
+
+    # You can choose to simply represent points that exist.
+    >>> tree.insert((1, 2))
+    True
+    # ...or include extra data at those points.
+    >>> tree.insert(quads.Point(4, -3, data="Samus"))
+    True
+
+    # You can search for a given point. It returns the point if found...
+    >>> tree.find((1, 2))
+    Point(1, 2)
+
+    # Or `None` if there's no match.
+    >>> tree.find((4, -4))
+    None
+
+    # You can also find all the points within a given region.
+    >>> bb = quads.BoundingBox(min_x=-1, min_y=-2, max_x=2, max_y=2)
+    >>> tree.within_bb(bb)
+    [Point(1, 2)]
+
 """
 import math
 
 
 __author__ = "Daniel Lindsley"
 __license__ = "New BSD"
-__version__ = (1, 0, 0, "beta")
+__version__ = (1, 0, 0, "beta", 2)
 
 
 def euclidean_compare(ref_point, check_point):
+    """
+    Calculates a raw euclidean value for comparison with other raw values.
+
+    This calculates the sum of the delta of X values plus the delta of Y
+    values. It skips the square root portion of the Pythagorean theorem,
+    for speed.
+
+    If you need a proper euclidean distance value, see `euclidean_distance`.
+
+    Primarily for internal use, but stable API if you need it.
+
+    Args:
+        ref_point (Point): The first point to check.
+        check_point (Point): The second point to check.
+
+    Returns:
+        int|float: The sum value.
+    """
     dx = max(ref_point.x, check_point.x) - min(ref_point.x, check_point.x)
     dy = max(ref_point.y, check_point.y) - min(ref_point.y, check_point.y)
     return dx ** 2 + dy ** 2
 
 
 def euclidean_distance(ref_point, check_point):
+    """
+    Calculates a euclidean distance between points.
+
+    Args:
+        ref_point (Point): The first point to check.
+        check_point (Point): The second point to check.
+
+    Returns:
+        int|float: The (unitless) distance value.
+    """
     return math.sqrt(euclidean_compare(ref_point, check_point))
 
 
 class Point(object):
+    """
+    An object representing X/Y cartesean coordinates.
+    """
+
     def __init__(self, x, y, data=None):
+        """
+        Constructs a `Point` object.
+
+        Args:
+            x (int|float): The X coordinate.
+            y (int|float): The Y coordinate.
+            data (any): Optional. Corresponding data for that point. Default
+                is `None`.
+        """
         self.x = x
         self.y = y
         self.data = data
@@ -29,15 +104,46 @@ class Point(object):
         return "<Point: ({}, {})>".format(self.x, self.y)
 
     def __eq__(self, other):
+        """
+        Checks if a point's *coordinates* are equal to another point's.
+
+        This does **NOT** ensure the data is the same. This library doesn't
+        concern itself with what data you're storing on the points.
+
+        Args:
+            other (Point): The other point to check against.
+
+        Returns:
+            bool: `True` if the coordinates match, otherwise `False`.
+        """
         return self.x == other.x and self.y == other.y
 
 
 class BoundingBox(object):
+    """
+    A object representing a bounding box.
+    """
+
     def __init__(self, min_x, min_y, max_x, max_y):
+        """
+        Constructs a `Point` object.
+
+        Args:
+            min_x (int|float): The minimum X coordinate.
+            min_y (int|float): The minimum Y coordinate.
+            max_x (int|float): The maximum X coordinate.
+            max_y (int|float): The maximum Y coordinate.
+        """
         self.min_x = min_x
         self.min_y = min_y
         self.max_x = max_x
         self.max_y = max_y
+
+        self.width = self.max_x - self.min_x
+        self.height = self.max_y - self.min_y
+        self.half_width = self.width / 2
+        self.half_height = self.height / 2
+        self.center = Point(self.half_width, self.half_height)
 
     def __repr__(self):
         return "<BoundingBox: ({}, {}) to ({}, {})>".format(
@@ -45,16 +151,61 @@ class BoundingBox(object):
         )
 
     def contains(self, point):
+        """
+        Checks if a point is within the bounding box.
+
+        Args:
+            point (Point): The point to check.
+
+        Returns:
+            bool: `True` if the point is within the box, otherwise `False`.
+        """
         return (
             self.min_x <= point.x <= self.max_x
             and self.min_y <= point.y <= self.max_y
         )
 
+    def intersects(self, other_bb):
+        """
+        Checks if another bounding box intersects with this bounding box.
+
+        Args:
+            other_bb (BoundingBox): The bounding box to check.
+
+        Returns:
+            bool: `True` if they intersect, otherwise `False`.
+        """
+        return not (
+            other_bb.min_x > self.max_x
+            or other_bb.max_x < self.min_x
+            or other_bb.max_y < self.min_y
+            or other_bb.min_y > self.max_y
+        )
+
 
 class QuadNode(object):
+    """
+    A node within the QuadTree.
+
+    Typically, you won't use this object directly. The `QuadTree` object
+    provides a more convenient API. However, if you know what you're doing
+    or need to customize, `QuadNode` is here.
+    """
+
     POINT_CAPACITY = 4
 
     def __init__(self, center, width, height, capacity=None):
+        """
+        Constructs a `QuadNode` object.
+
+        Args:
+            center (tuple|Point): The center point of the quadtree.
+            width (int|float): The width of the point space.
+            height (int|float): The height of the point space.
+            capacity (int): Optional. The number of points per quad before
+                subdivision occurs. Default is `None`, which defers to
+                `QuadNode.POINT_CAPACITY`, which is `4`.
+        """
         self.center = center
         self.width = width
         self.height = height
@@ -76,8 +227,17 @@ class QuadNode(object):
             self.center.x, self.center.y, self.width, self.height
         )
 
-    def __contains__(self, pnt):
-        return self.find(pnt) is not None
+    def __contains__(self, point):
+        """
+        Checks if a point is found within the node's data.
+
+        Args:
+            point (Point): The point to check.
+
+        Returns:
+            bool: `True` if it found, otherwise `False`.
+        """
+        return self.find(point) is not None
 
     def _calc_bounding_box(self):
         half_width = self.width / 2
@@ -90,28 +250,94 @@ class QuadNode(object):
 
         return BoundingBox(min_x=min_x, min_y=min_y, max_x=max_x, max_y=max_y)
 
-    def contains_point(self, pnt):
+    def contains_point(self, point):
+        """
+        Checks if a point would be within the bounding box of the node.
+
+        This is a bounding check, not verification the point is present in
+        the data.
+
+        Args:
+            point (Point): The point to check.
+
+        Returns:
+            bool: `True` if it is within the bounds, otherwise `False`.
+        """
         bb = self.bounding_box
 
-        if bb.min_x <= pnt.x < bb.max_x:
-            if bb.min_y <= pnt.y < bb.max_y:
+        if bb.min_x <= point.x < bb.max_x:
+            if bb.min_y <= point.y < bb.max_y:
                 return True
 
         return False
 
     def is_ul(self, point):
+        """
+        Checks if a point would be in the upper-left quadrant of the node.
+
+        This is a bounding check, not verification the point is present in
+        the data.
+
+        Args:
+            point (Point): The point to check.
+
+        Returns:
+            bool: `True` if it would be, otherwise `False`.
+        """
         return point.x <= self.center.x and point.y >= self.center.y
 
     def is_ur(self, point):
+        """
+        Checks if a point would be in the upper-right quadrant of the node.
+
+        This is a bounding check, not verification the point is present in
+        the data.
+
+        Args:
+            point (Point): The point to check.
+
+        Returns:
+            bool: `True` if it would be, otherwise `False`.
+        """
         return point.x > self.center.x and point.y >= self.center.y
 
     def is_ll(self, point):
+        """
+        Checks if a point would be in the lower-left quadrant of the node.
+
+        This is a bounding check, not verification the point is present in
+        the data.
+
+        Args:
+            point (Point): The point to check.
+
+        Returns:
+            bool: `True` if it would be, otherwise `False`.
+        """
         return point.x <= self.center.x and point.y < self.center.y
 
     def is_lr(self, point):
+        """
+        Checks if a point would be in the lower-right quadrant of the node.
+
+        This is a bounding check, not verification the point is present in
+        the data.
+
+        Args:
+            point (Point): The point to check.
+
+        Returns:
+            bool: `True` if it would be, otherwise `False`.
+        """
         return point.x > self.center.x and point.y < self.center.y
 
     def subdivide(self):
+        """
+        Subdivides an existing node into the node + children.
+
+        Returns:
+            None: Nothing to see here. Please go about your business.
+        """
         half_width = self.width / 2
         half_height = self.height / 2
         quarter_width = half_width / 2
@@ -159,6 +385,19 @@ class QuadNode(object):
         self.points = []
 
     def insert(self, point):
+        """
+        Inserts a `Point` into the node.
+
+        If the node exceeds the maximum capacity, it will subdivide itself
+        & redistribute its points before adding the new one. This means there
+        can be some variance in the performance of this method.
+
+        Args:
+            point (Point): The point to insert.
+
+        Returns:
+            bool: `True` if insertion succeeded, otherwise `False`.
+        """
         if not self.contains_point(point):
             raise ValueError(
                 "Point {} is not within this node ({} - {}).".format(
@@ -186,6 +425,17 @@ class QuadNode(object):
         return True
 
     def find(self, point):
+        """
+        Searches for the node that would contain the `Point` within the
+        node & it's children.
+
+        Args:
+            point (Point): The point to search for.
+
+        Returns:
+            Point|None: Returns the `Point` (including it's data) if found.
+                `None` if the point is not found.
+        """
         found_node, _ = self.find_node(point)
 
         if found_node is None:
@@ -199,6 +449,21 @@ class QuadNode(object):
         return None
 
     def find_node(self, point, searched=None):
+        """
+        Searches for the node that would contain the `Point` within the
+        node & it's children.
+
+        Args:
+            point (Point): The point to search for.
+            searched (list|None): Optional. This is a list of all the nodes
+                that were touched during the search. Default is `None`, which
+                will construct an empty `list` to pass to recursive calls.
+
+        Returns:
+            tuple: (QuadNode|None, list): Returns the node where the point
+                would be found or `None`, AND the list of nodes touched
+                during the search.
+        """
         if searched is None:
             searched = []
 
@@ -225,21 +490,33 @@ class QuadNode(object):
         return self, searched
 
     def within_bb(self, bb):
+        """
+        Checks if a bounding box is within the node's bounding box.
+
+        Primarily for internal use, but stable API if you need it.
+
+        Args:
+            bb (BoundingBox): The bounding box to check.
+
+        Returns:
+            bool: `True` if the bounding boxes intersect, otherwise `False`.
+        """
         points = []
 
-        # FIXME: This is inefficient, as it checks nodes that may not
-        #        overlap with the bounding box.
+        # If we don't intersect with the bounding box, return an empty list.
+        if not self.bounding_box.intersects(bb):
+            return points
+
+        # Check if any of the points on this instance are within the BB.
+        for pnt in self.points:
+            if bb.contains(pnt):
+                points.append(pnt)
 
         if self.ul is not None:
             points += self.ul.within_bb(bb)
 
         if self.ur is not None:
             points += self.ur.within_bb(bb)
-
-        # Check if any of the points on this instance are within the BB.
-        for pnt in self.points:
-            if bb.contains(pnt):
-                points.append(pnt)
 
         if self.ll is not None:
             points += self.ll.within_bb(bb)
@@ -272,6 +549,16 @@ class QuadTree(object):
     """
 
     def __init__(self, center, width, height, capacity=None):
+        """
+        Constructs a `QuadTree` object.
+
+        Args:
+            center (tuple|Point): The center point of the quadtree.
+            width (int|float): The width of the point space.
+            height (int|float): The height of the point space.
+            capacity (int): Optional. The number of points per quad before
+                subdivision occurs. Default is `None`.
+        """
         self.width = width
         self.height = height
         self.center = self.convert_to_point(center)
@@ -285,6 +572,17 @@ class QuadTree(object):
         )
 
     def convert_to_point(self, val):
+        """
+        Converts a value to a `Point` object.
+
+        This is to allow shortcuts, like providing a tuple for a point.
+
+        Args:
+            val (Point|tuple|None): The value to convert.
+
+        Returns:
+            Point: A point object.
+        """
         if isinstance(val, Point):
             return val
         elif isinstance(val, (tuple, list)):
@@ -298,19 +596,63 @@ class QuadTree(object):
             )
 
     def __contains__(self, point):
+        """
+        Checks if a `Point` is found in the quadtree.
+
+        > Note: This doesn't check if a point is within the bounds of the
+        > tree, but if that *specific point* is in the tree.
+
+        Args:
+            point (Point|tuple|None): The point to check for.
+
+        Returns:
+            bool: `True` if found, otherwise `False`.
+        """
         pnt = self.convert_to_point(point)
         return self.find(pnt) is not None
 
     def insert(self, point, data=None):
+        """
+        Inserts a `Point` into the quadtree.
+
+        Args:
+            point (Point|tuple|None): The point to insert.
+            data (any): Optional. Corresponding data for that point. Default
+                is `None`.
+
+        Returns:
+            bool: `True` if insertion succeeded, otherwise `False`.
+        """
         pnt = self.convert_to_point(point)
         pnt.data = data
         return self._root.insert(pnt)
 
     def find(self, point):
+        """
+        Searches for a `Point` within the quadtree.
+
+        Args:
+            point (Point|tuple|None): The point to search for.
+
+        Returns:
+            Point|None: Returns the `Point` (including it's data) if found.
+                `None` if the point is not found.
+        """
         pnt = self.convert_to_point(point)
         return self._root.find(pnt)
 
     def within_bb(self, bb):
+        """
+        Checks if a bounding box is within the quadtree's bounding box.
+
+        Primarily for internal use, but stable API if you need it.
+
+        Args:
+            bb (BoundingBox): The bounding box to check.
+
+        Returns:
+            bool: `True` if the bounding boxes intersect, otherwise `False`.
+        """
         return self._root.within_bb(bb)
 
     # FIXME: Finish this for 1.0.0!

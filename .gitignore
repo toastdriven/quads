@@ -1,11 +1,16 @@
 *.DS_Store
+.vscode
 
 __pycache__
 *.egg-info
 .pytest_cache
+
 dist
+
 htmlcov
 .coverage
+
+docs/_build
 
 # Unsure if this should be in version control or not.
 # We'll ignore for now.
