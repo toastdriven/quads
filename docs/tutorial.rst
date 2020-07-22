@@ -243,7 +243,7 @@ to draw what the tree's nodes & points look like.::
 The tree we've built in this tutorial isn't exceptionally interesting, but
 large tree can be quite complex & kinda beautiful:
 
-.. image:: _static/quadtree_visualization.png
+.. image:: images/quadtree_visualization.png
 
 
 Where to Go From Here

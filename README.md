@@ -11,10 +11,12 @@ important. They're especially good for spatial indexing & image processing.
 
 An actual visualization of a `quads.QuadTree`:
 
-![quadtree_viz](docs/_static/quadtree_visualization.png)
+![quadtree_viz](docs/images/quadtree_visualization.png)
 
 
 ## Usage
+
+Full documentation at https://quads.readthedocs.io/en/latest/
 
 ```python
 >>> import quads

@@ -11,7 +11,7 @@ spatial indexing & image processing.
 
 An actual visualization of a `quads.QuadTree`:
 
-.. image:: _static/quadtree_visualization.png
+.. image:: images/quadtree_visualization.png
 
 Usage
 -----
