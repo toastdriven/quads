@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "quads"
-version = "1.0.0"
+version = "1.0.1"
 description = "A pure Python Quadtree implementation."
 authors = ["Daniel Lindsley <daniel@toastdriven.com>"]
 license = "BSD-3-Clause"
