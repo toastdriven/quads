@@ -434,13 +434,12 @@ class QuadNodeTestCase(unittest.TestCase):
         pairs = [(pnt.x, pnt.y) for pnt in points]
         self.assertEqual(pairs, [(-3, 2), (-1, -2)])
 
-    def test_within_bb_none(self):
+    def test_len(self):
         node = self.create_simple_tree()
-        bb = BoundingBox(-30, -30, -29, -29)
+        self.assertEqual(len(node), 6)
 
-        points = node.within_bb(bb)
-        pairs = [(pnt.x, pnt.y) for pnt in points]
-        self.assertEqual(pairs, [])
+        node = self.create_medium_tree()
+        self.assertEqual(len(node), 12)
 
 
 class QuadTreeTestCase(unittest.TestCase):
@@ -664,3 +663,15 @@ class QuadTreeTestCase(unittest.TestCase):
         ur_pnt = Point(21, 21)
         nearby = tree.nearest_neighbors(ur_pnt, count=10)
         self.assertEqual(len(nearby), 0)
+
+    def test_len(self):
+        tree = self.create_sample_tree()
+        self.assertEqual(len(tree), 12)
+
+        # Load up a "big" quadtree.
+        tree = QuadTree((0, 0), 100, 100)
+
+        for x, y in test_data.data.get("large_random", []):
+            tree.insert((x, y))
+
+        self.assertEqual(len(tree), 1000)

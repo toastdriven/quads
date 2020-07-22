@@ -325,6 +325,29 @@ class QuadNode(object):
         """
         return self.find(point) is not None
 
+    def __len__(self):
+        """
+        Returns a count of how many points are in the node.
+
+        Returns:
+            int: A count of all the points.
+        """
+        count = len(self.points)
+
+        if self.ul is not None:
+            count += len(self.ul)
+
+        if self.ur is not None:
+            count += len(self.ur)
+
+        if self.ll is not None:
+            count += len(self.ll)
+
+        if self.lr is not None:
+            count += len(self.lr)
+
+        return count
+
     def _calc_bounding_box(self):
         half_width = self.width / 2
         half_height = self.height / 2
@@ -734,6 +757,15 @@ class QuadTree(object):
         """
         pnt = self.convert_to_point(point)
         return self.find(pnt) is not None
+
+    def __len__(self):
+        """
+        Returns a count of how many points are in the tree.
+
+        Returns:
+            int: A count of all the points.
+        """
+        return len(self._root)
 
     def insert(self, point, data=None):
         """
