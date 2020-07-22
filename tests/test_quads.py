@@ -9,6 +9,8 @@ from quads import (
     QuadTree,
 )
 
+from . import test_data
+
 
 class UtilsTestCase(unittest.TestCase):
     def test_euclidean_compare(self):
@@ -34,6 +36,7 @@ class PointTestCase(unittest.TestCase):
         self.assertEqual(pnt.y, -23)
         self.assertEqual(pnt.data, None)
 
+        # Samus the Corgi: https://www.instagram.com/p/CCcGNnMpmt9/
         pnt = Point(72, 13, data="Samus")
         self.assertEqual(pnt.x, 72)
         self.assertEqual(pnt.y, 13)
@@ -42,6 +45,14 @@ class PointTestCase(unittest.TestCase):
     def test_str(self):
         pnt = Point(72, 13, data="Samus")
         self.assertEqual(str(pnt), "<Point: (72, 13)>")
+
+    def test_hash(self):
+        pnt_1 = Point(1, -23)
+        pnt_2 = Point(1, -23, data="test")
+        pnt_3 = Point(72, 13)
+
+        self.assertEqual(hash(pnt_1), hash(pnt_2))
+        self.assertNotEqual(hash(pnt_2), hash(pnt_3))
 
     def test_equality(self):
         pnt_1 = Point(1, -23)
@@ -375,6 +386,38 @@ class QuadNodeTestCase(unittest.TestCase):
         found, searched = node.find_node(Point(-500, 450))
         self.assertIsNone(found)
 
+    def test_all_points_small(self):
+        node = self.create_medium_tree()
+
+        found, searched = node.find_node(Point(6, 4))
+        points = found.all_points()
+        self.assertEqual(
+            set([pnt.data for pnt in points]), set([True, "dog", "cat"])
+        )
+
+    def test_all_points_large(self):
+        node = self.create_medium_tree()
+
+        points = node.all_points()
+        sp = sorted([(pnt.x, pnt.y) for pnt in points])
+        self.assertEqual(
+            sp,
+            [
+                (-15, 9),
+                (-15, 17),
+                (-13, 6),
+                (-1, -2),
+                (1, 2),
+                (6, 4),
+                (7, 5),
+                (9, -17),
+                (10, -22.5),
+                (10, -22),
+                (10, 35),
+                (11, 42),
+            ],
+        )
+
     def test_within_bb(self):
         node = self.create_simple_tree()
         bb = BoundingBox(-7, -7, 7, 7)
@@ -516,6 +559,108 @@ class QuadTreeTestCase(unittest.TestCase):
             ],
         )
 
-    @unittest.skip
-    def test_nearest_neighbors(self):
-        pass
+    def test_nearest_neighbors_tiny(self):
+        tree = QuadTree((0, 0), 20, 20)
+
+        tree.insert((1, 2), data="oof")
+        tree.insert((-7, 5), data="we")
+        tree.insert((-1, -2), data="are")
+        tree.insert((3, -6), data="small")
+
+        lr_pnt = Point(9, -9)
+        nearby = tree.nearest_neighbors(lr_pnt, count=10)
+        self.assertEqual(len(nearby), 4)
+        self.assertEqual(
+            [(pnt.x, pnt.y) for pnt in nearby],
+            [(3, -6), (-1, -2), (1, 2), (-7, 5)],
+        )
+        self.assertEqual(
+            [pnt.data for pnt in nearby], ["small", "are", "oof", "we"],
+        )
+
+        distances = [euclidean_distance(lr_pnt, found) for found in nearby]
+        self.assertAlmostEqual(distances[0], 6.708203932499369)
+        self.assertAlmostEqual(distances[-1], 21.2602916254693)
+
+    def test_nearest_neighbors_sample(self):
+        tree = self.create_sample_tree()
+
+        ur_pnt = Point(5, 5)
+        nearby = tree.nearest_neighbors(ur_pnt, count=10)
+        self.assertEqual(len(nearby), 10)
+        self.assertEqual(
+            [(pnt.x, pnt.y) for pnt in nearby],
+            [
+                (6, 4),
+                (7, 5),
+                (1, 2),
+                (10, 35),
+                (11, 42),
+                (-1, -2),
+                (-13, 6),
+                (-15, 9),
+                (9, -17),
+                (-15, 17),
+            ],
+        )
+        self.assertEqual(
+            [pnt.data for pnt in nearby],
+            [
+                "cat",
+                "dog",
+                True,
+                "fish",
+                "Samus",
+                False,
+                -69,
+                "whatev",
+                89.567,
+                {"hello": "world"},
+            ],
+        )
+
+        distances = [euclidean_distance(ur_pnt, found) for found in nearby]
+        self.assertAlmostEqual(distances[0], 1.4142135623730951)
+        self.assertAlmostEqual(distances[-1], 23.323807579381203)
+
+    def test_nearest_neighbors_large(self):
+        # Load up a "big" quadtree.
+        tree = QuadTree((0, 0), 100, 100)
+
+        for x, y in test_data.data.get("large_random", []):
+            tree.insert((x, y))
+
+        ul_pnt = Point(-35, 25)
+        nearby = tree.nearest_neighbors(ul_pnt, count=10)
+        self.assertEqual(len(nearby), 10)
+        self.assertEqual(
+            [(pnt.x, pnt.y) for pnt in nearby],
+            [
+                (-33, 22),
+                (-36, 29),
+                (-34, 21),
+                (-38, 28),
+                (-40, 25),
+                (-35, 30),
+                (-40, 26),
+                (-30, 26),
+                (-33, 30),
+                (-31, 29),
+            ],
+        )
+
+        distances = [euclidean_distance(ul_pnt, found) for found in nearby]
+        self.assertAlmostEqual(distances[0], 3.605551275463989)
+        self.assertAlmostEqual(distances[-1], 5.656854249492381)
+
+    def test_nearest_neighbors_outside(self):
+        tree = QuadTree((0, 0), 20, 20)
+
+        tree.insert((1, 2), data="oof")
+        tree.insert((-7, 5), data="we")
+        tree.insert((-1, -2), data="are")
+        tree.insert((3, -6), data="small")
+
+        ur_pnt = Point(21, 21)
+        nearby = tree.nearest_neighbors(ur_pnt, count=10)
+        self.assertEqual(len(nearby), 0)

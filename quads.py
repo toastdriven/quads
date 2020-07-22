@@ -34,6 +34,14 @@ Usage::
     >>> tree.within_bb(bb)
     [Point(1, 2)]
 
+    # You can also search to find the nearest neighbors of a point, even
+    # if that point doesn't have data within the quadtree.
+    >>> tree.nearest_neighbors((0, 1), count=2)
+    [
+        Point(1, 2),
+        Point(4, -4),
+    ]
+
 """
 import math
 
@@ -81,6 +89,75 @@ def euclidean_distance(ref_point, check_point):
     return math.sqrt(euclidean_compare(ref_point, check_point))
 
 
+def visualize(tree, size=10):  # pragma: no cover
+    """
+    Using `matplotlib`, generates a visualization of the `QuadTree`.
+
+    You will have to separately install `matplotlib`, as this library does
+    not depend on it in any other way::
+
+        $ pip install matplotlib
+
+    Once installed, this will automatically generate an entire plot of all
+    the points within, as well as lines for the subdivisions of nodes.
+
+    Args:
+        tree (`QuadTree`): The quadtree itself.
+        size (int): The size of the resulting output diagram.
+
+    """
+    from matplotlib import pyplot
+
+    def draw_all_nodes(node):
+        for pnt in node.points:
+            pyplot.plot(pnt.x, pnt.y, ".")
+
+        if node.ul:
+            draw_lines(node)
+            draw_all_nodes(node.ul)
+        if node.ur:
+            draw_all_nodes(node.ur)
+        if node.ll:
+            draw_all_nodes(node.ll)
+        if node.lr:
+            draw_all_nodes(node.lr)
+
+    def draw_lines(node):
+        bb = node.bounding_box
+
+        # The scales for axhline & axvline are 0-1, so we have to convert
+        # our values.
+        x_offset = -tree._root.bounding_box.min_x
+        min_x = (bb.min_x + x_offset) / 100
+        max_x = (bb.max_x + x_offset) / 100
+
+        y_offset = -tree._root.bounding_box.min_y
+        min_y = (bb.min_y + y_offset) / 100
+        max_y = (bb.max_y + y_offset) / 100
+
+        pyplot.axhline(
+            node.center.y, min_x, max_x, color="grey", linewidth=0.5
+        )
+        pyplot.axvline(
+            node.center.x, min_y, max_y, color="grey", linewidth=0.5
+        )
+
+    pyplot.figure(figsize=(size, size))
+
+    # Draw the axis first.
+    half_width = tree.width / 2
+    half_height = tree.height / 2
+    min_x, max_x = tree.center.x - half_width, tree.center.x + half_width
+    min_y, max_y = (
+        tree.center.y - half_height,
+        tree.center.y + half_height,
+    )
+    pyplot.axis([min_x, max_x, min_y, max_y])
+
+    draw_all_nodes(tree._root)
+    pyplot.show()
+
+
 class Point(object):
     """
     An object representing X/Y cartesean coordinates.
@@ -102,6 +179,9 @@ class Point(object):
 
     def __repr__(self):
         return "<Point: ({}, {})>".format(self.x, self.y)
+
+    def __hash__(self):
+        return hash((self.x, self.y))
 
     def __eq__(self, other):
         """
@@ -265,8 +345,8 @@ class QuadNode(object):
         """
         bb = self.bounding_box
 
-        if bb.min_x <= point.x < bb.max_x:
-            if bb.min_y <= point.y < bb.max_y:
+        if bb.min_x <= point.x <= bb.max_x:
+            if bb.min_y <= point.y <= bb.max_y:
                 return True
 
         return False
@@ -284,7 +364,7 @@ class QuadNode(object):
         Returns:
             bool: `True` if it would be, otherwise `False`.
         """
-        return point.x <= self.center.x and point.y >= self.center.y
+        return point.x < self.center.x and point.y >= self.center.y
 
     def is_ur(self, point):
         """
@@ -299,7 +379,7 @@ class QuadNode(object):
         Returns:
             bool: `True` if it would be, otherwise `False`.
         """
-        return point.x > self.center.x and point.y >= self.center.y
+        return point.x >= self.center.x and point.y >= self.center.y
 
     def is_ll(self, point):
         """
@@ -314,7 +394,7 @@ class QuadNode(object):
         Returns:
             bool: `True` if it would be, otherwise `False`.
         """
-        return point.x <= self.center.x and point.y < self.center.y
+        return point.x < self.center.x and point.y < self.center.y
 
     def is_lr(self, point):
         """
@@ -329,7 +409,7 @@ class QuadNode(object):
         Returns:
             bool: `True` if it would be, otherwise `False`.
         """
-        return point.x > self.center.x and point.y < self.center.y
+        return point.x >= self.center.x and point.y < self.center.y
 
     def subdivide(self):
         """
@@ -372,15 +452,17 @@ class QuadNode(object):
         )
 
         # Redistribute the points.
+        # Manually call `append` here, as calling `.insert()` creates an
+        # infinite recursion situation.
         for pnt in self.points:
             if self.is_ul(pnt):
-                self.ul.insert(pnt)
+                self.ul.points.append(pnt)
             elif self.is_ur(pnt):
-                self.ur.insert(pnt)
+                self.ur.points.append(pnt)
             elif self.is_ll(pnt):
-                self.ll.insert(pnt)
+                self.ll.points.append(pnt)
             else:
-                self.lr.insert(pnt)
+                self.lr.points.append(pnt)
 
         self.points = []
 
@@ -489,6 +571,31 @@ class QuadNode(object):
         # Not found in any children. Return this node.
         return self, searched
 
+    def all_points(self):
+        """
+        Returns all the points located with a node & its children.
+
+        Returns:
+            list: All the `Point` objects in an unordered list.
+        """
+        # Make sure we slice it, so that we copy the whole list & don't
+        # risk modifying the original.
+        points = self.points[:]
+
+        if self.ul is not None:
+            points += self.ul.all_points()
+
+        if self.ur is not None:
+            points += self.ur.all_points()
+
+        if self.ll is not None:
+            points += self.ll.all_points()
+
+        if self.lr is not None:
+            points += self.lr.all_points()
+
+        return points
+
     def within_bb(self, bb):
         """
         Checks if a bounding box is within the node's bounding box.
@@ -546,6 +653,12 @@ class QuadTree(object):
 
         >>> tree.find((4, -4))
         None
+
+        >>> tree.nearest_neighbors((0, 1), count=2)
+        [
+            Point(1, 2),
+            Point(4, -4),
+        ]
     """
 
     def __init__(self, center, width, height, capacity=None):
@@ -655,8 +768,107 @@ class QuadTree(object):
         """
         return self._root.within_bb(bb)
 
-    # FIXME: Finish this for 1.0.0!
-    """
-    def nearest_neighbors(self, point, num_results=10)
-        pnt = self.convert_to_point(point)
-    """
+    def nearest_neighbors(self, point, count=10):
+        """
+        Returns the nearest points of a given point, sorted by distance
+        (closest first).
+
+        The desired point does not need to exist within the quadtree, but
+        does need to be within the tree's boundaries.
+
+        Args:
+            point (Point): The desired location to search around.
+            count (int): Optional. The number of neighbors to return. Default
+                is `10`.
+
+        Returns:
+            list: The nearest `Point` neighbors.
+        """
+        # Algorithm description:
+        # * Search down to find the smallest node around the desired point,
+        #   retaining a stack of nodes visited on the way down.
+        # * Reverse the visited stack, so that it's now in
+        #   smallest/closest-to-largest/furthest order.
+        # * Iterate over the node stack.
+        #   * Collect the points from the current node & it's children.
+        #   * Sort the points by euclidean distance, using
+        #     `euclidean_compare`, since the actual distance doesn't matter
+        #     for now.
+        #   * Add them to the "found" results.
+        #   * If the "found" count is greater-than-or-equal to the desired
+        #     count, break out of the loop.
+        # * If the stack is exhausted, we have all the points in the entire
+        #   quadtree & can just return them.
+        # * Otherwise, we now have a decent set of results, ordered by
+        #   distance. But we are not done. It's possible/probable that there
+        #   are other nearby quadnodes that weren't touched by the search
+        #   BUT are physically closer.
+        # * Take our furthest point and use it as a radius for a search
+        #   "circle".
+        #     * We'll actually just create a bounding box, which is
+        #       computationally cheaper & we already have methods that
+        #       support it.
+        #     * Using that radius as a distance to the *edge* (not a corner),
+        #       we create a box big enough to fit the search circle.
+        # * Collect all the points within that bounding box.
+        # * Re-sort them by euclidean distance (again, using
+        #   `euclidean_compare`).
+        # * Slice it to match the desired count & return them.
+
+        point = self.convert_to_point(point)
+        nearest_results = []
+
+        # Check to see if it's within our bounds first.
+        if not self._root.contains_point(point):
+            return nearest_results
+
+        # First, find the target node.
+        node, searched_nodes = self._root.find_node(point)
+
+        # Reverse the order, as they come back in coarse-to-fine order, which
+        # is the opposite of nearby points.
+        searched_nodes.reverse()
+        seen_nodes = set()
+        seen_points = set()
+
+        # From here, we'll work our way backwards out through the nodes.
+        for node in searched_nodes:
+            # Mark the node as already checked.
+            seen_nodes.add(node)
+            local_points = []
+
+            for pnt in node.all_points():
+                if pnt in seen_points:
+                    continue
+
+                seen_points.add(pnt)
+                local_points.append(pnt)
+
+            local_points = sorted(
+                local_points, key=lambda lpnt: euclidean_compare(point, lpnt)
+            )
+            nearest_results.extend(local_points)
+
+            if len(nearest_results) >= count:
+                break
+
+        # Slice off any extras.
+        nearest_results = nearest_results[:count]
+
+        if len(seen_nodes) == len(searched_nodes):
+            # We've exhausted everything. Return what we've got.
+            return nearest_results[:count]
+
+        search_radius = euclidean_distance(point, nearest_results[-1])
+        search_bb = BoundingBox(
+            point.x - search_radius,
+            point.y - search_radius,
+            point.x + search_radius,
+            point.y + search_radius,
+        )
+        bb_results = self._root.within_bb(search_bb)
+        nearest_results = sorted(
+            bb_results, key=lambda lpnt: euclidean_compare(point, lpnt)
+        )
+
+        return nearest_results[:count]

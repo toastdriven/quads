@@ -6,6 +6,10 @@ A pure Python Quadtree implementation.
 structure for sparse datasets where the location/position of the data is
 important. They're especially good for spatial indexing & image processing.
 
+An actual visualization of a `quads.QuadTree`:
+
+![quadtree_viz](docs/_static/quadtree_visualization.png)
+
 
 ## Usage
 
@@ -36,10 +40,22 @@ None
 >>> bb = quads.BoundingBox(min_x=-1, min_y=-2, max_x=2, max_y=2)
 >>> tree.within_bb(bb)
 [Point(1, 2)]
+
+# You can also search to find the nearest neighbors of a point, even
+# if that point doesn't have data within the quadtree.
+>>> tree.nearest_neighbors((0, 1), count=2)
+[
+    Point(1, 2),
+    Point(4, -4),
+]
+
+# And if you have `matplotlib` installed (not required!), you can visualize
+# the tree.
+>>> quads.visualize(tree)
 ```
 
 
-## Setup
+## Installation
 
 ```
 $ pip install quads
