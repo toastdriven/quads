@@ -1,5 +1,8 @@
 # `quads`
 
+[![Documentation Status](https://readthedocs.org/projects/quads/badge/?version=latest)](https://quads.readthedocs.io/en/latest/?badge=latest)
+![CI](https://github.com/toastdriven/quads/workflows/CI/badge.svg)
+
 A pure Python Quadtree implementation.
 
 [Quadtrees](https://en.wikipedia.org/wiki/Quadtree) are a useful data
