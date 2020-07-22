@@ -4,7 +4,7 @@ from setuptools import setup
 
 setup(
     name="quads",
-    version="1.0.1",
+    version="1.1.0",
     description=("A pure Python Quadtree implementation."),
     author="Daniel Lindsley",
     author_email="daniel@toastdriven.com",

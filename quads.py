@@ -52,7 +52,7 @@ import math
 
 __author__ = "Daniel Lindsley"
 __license__ = "New BSD"
-__version__ = (1, 0, 1)
+__version__ = (1, 1, 0)
 
 
 def euclidean_compare(ref_point, check_point):
