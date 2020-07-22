@@ -348,6 +348,31 @@ class QuadNode(object):
 
         return count
 
+    def __iter__(self):
+        """
+        Iterates (lazily) over all the points located within a node &
+        its children.
+
+        Returns:
+            iterable: All the `Point` objects.
+        """
+        # Make sure we slice it, so that we copy the whole list & don't
+        # risk modifying the original.
+        for pnt in self.points[:]:
+            yield pnt
+
+        if self.ul is not None:
+            yield from self.ul
+
+        if self.ur is not None:
+            yield from self.ur
+
+        if self.ll is not None:
+            yield from self.ll
+
+        if self.lr is not None:
+            yield from self.lr
+
     def _calc_bounding_box(self):
         half_width = self.width / 2
         half_height = self.height / 2
@@ -604,28 +629,13 @@ class QuadNode(object):
 
     def all_points(self):
         """
-        Returns all the points located with a node & its children.
+        Returns a **list** of all the points located within a node &
+        its children.
 
         Returns:
             list: All the `Point` objects in an unordered list.
         """
-        # Make sure we slice it, so that we copy the whole list & don't
-        # risk modifying the original.
-        points = self.points[:]
-
-        if self.ul is not None:
-            points += self.ul.all_points()
-
-        if self.ur is not None:
-            points += self.ur.all_points()
-
-        if self.ll is not None:
-            points += self.ll.all_points()
-
-        if self.lr is not None:
-            points += self.lr.all_points()
-
-        return points
+        return list(iter(self))
 
     def within_bb(self, bb):
         """
@@ -766,6 +776,15 @@ class QuadTree(object):
             int: A count of all the points.
         """
         return len(self._root)
+
+    def __iter__(self):
+        """
+        Returns an iterator for all the points in the tree.
+
+        Returns:
+            iterator: An iterator of all the points.
+        """
+        return iter(self._root)
 
     def insert(self, point, data=None):
         """

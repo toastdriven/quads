@@ -441,6 +441,46 @@ class QuadNodeTestCase(unittest.TestCase):
         node = self.create_medium_tree()
         self.assertEqual(len(node), 12)
 
+    def test_iter(self):
+        node = self.create_simple_tree()
+        points = iter(node)
+
+        pnt = next(points)
+        self.assertEqual(pnt.x, -3)
+        self.assertEqual(pnt.y, 2)
+
+        pnt = next(points)
+        self.assertEqual(pnt.x, 7)
+        self.assertEqual(pnt.y, 5)
+
+        pnt = next(points)
+        self.assertEqual(pnt.x, 6)
+        self.assertEqual(pnt.y, 4)
+
+        pnt = next(points)
+        self.assertEqual(pnt.x, 8)
+        self.assertEqual(pnt.y, 8)
+
+        pnt = next(points)
+        self.assertEqual(pnt.x, -1)
+        self.assertEqual(pnt.y, -2)
+
+        pnt = next(points)
+        self.assertEqual(pnt.x, 9)
+        self.assertEqual(pnt.y, -9)
+
+        with self.assertRaises(StopIteration):
+            next(points)
+
+        # Make sure we're hitting child nodes.
+        node = self.create_medium_tree()
+        count = 0
+
+        for pnt in node:
+            count += 1
+
+        self.assertEqual(count, 12)
+
 
 class QuadTreeTestCase(unittest.TestCase):
     def test_init(self):
@@ -675,3 +715,25 @@ class QuadTreeTestCase(unittest.TestCase):
             tree.insert((x, y))
 
         self.assertEqual(len(tree), 1000)
+
+    def test_iter(self):
+        tree = self.create_sample_tree()
+        count = 0
+
+        for pnt in tree:
+            count += 1
+
+        self.assertEqual(count, 12)
+
+        # Load up a "big" quadtree.
+        tree = QuadTree((0, 0), 100, 100)
+
+        for x, y in test_data.data.get("large_random", []):
+            tree.insert((x, y))
+
+        count = 0
+
+        for pnt in tree:
+            count += 1
+
+        self.assertEqual(count, 1000)
