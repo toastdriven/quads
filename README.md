@@ -73,6 +73,7 @@ $ pip install quads
 $ git clone https://github.com/toastdriven/quads.git
 $ cd quads
 $ poetry install
+$ poetry shell
 
 # Just the tests.
 $ pytest .

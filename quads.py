@@ -42,6 +42,10 @@ Usage::
         Point(4, -4),
     ]
 
+    # And if you have `matplotlib` installed (not required!), you can
+    # visualize the tree.
+    >>> quads.visualize(tree)
+
 """
 import math
 
@@ -273,6 +277,8 @@ class QuadNode(object):
     """
 
     POINT_CAPACITY = 4
+    point_class = Point
+    bb_class = BoundingBox
 
     def __init__(self, center, width, height, capacity=None):
         """
@@ -328,7 +334,9 @@ class QuadNode(object):
         max_x = self.center.x + half_width
         max_y = self.center.y + half_height
 
-        return BoundingBox(min_x=min_x, min_y=min_y, max_x=max_x, max_y=max_y)
+        return self.bb_class(
+            min_x=min_x, min_y=min_y, max_x=max_x, max_y=max_y
+        )
 
     def contains_point(self, point):
         """
@@ -423,28 +431,28 @@ class QuadNode(object):
         quarter_width = half_width / 2
         quarter_height = half_height / 2
 
-        ul_center = Point(
+        ul_center = self.point_class(
             self.center.x - quarter_width, self.center.y + quarter_height
         )
         self.ul = self.__class__(
             ul_center, half_width, half_height, capacity=self.capacity
         )
 
-        ur_center = Point(
+        ur_center = self.point_class(
             self.center.x + quarter_width, self.center.y + quarter_height
         )
         self.ur = self.__class__(
             ur_center, half_width, half_height, capacity=self.capacity
         )
 
-        ll_center = Point(
+        ll_center = self.point_class(
             self.center.x - quarter_width, self.center.y - quarter_height
         )
         self.ll = self.__class__(
             ll_center, half_width, half_height, capacity=self.capacity
         )
 
-        lr_center = Point(
+        lr_center = self.point_class(
             self.center.x + quarter_width, self.center.y - quarter_height
         )
         self.lr = self.__class__(
@@ -661,6 +669,9 @@ class QuadTree(object):
         ]
     """
 
+    node_class = QuadNode
+    point_class = Point
+
     def __init__(self, center, width, height, capacity=None):
         """
         Constructs a `QuadTree` object.
@@ -675,7 +686,7 @@ class QuadTree(object):
         self.width = width
         self.height = height
         self.center = self.convert_to_point(center)
-        self._root = QuadNode(
+        self._root = self.node_class(
             self.center, self.width, self.height, capacity=capacity
         )
 
@@ -696,12 +707,12 @@ class QuadTree(object):
         Returns:
             Point: A point object.
         """
-        if isinstance(val, Point):
+        if isinstance(val, self.point_class):
             return val
         elif isinstance(val, (tuple, list)):
-            return Point(val[0], val[1])
+            return self.point_class(val[0], val[1])
         elif val is None:
-            return Point(0, 0)
+            return self.point_class(0, 0)
         else:
             raise ValueError(
                 "Unknown data provided for point. Please use one of: "
